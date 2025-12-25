@@ -1,20 +1,17 @@
 // ===============================
-// PvPStatsTracker - Viewer.js
+// PvPStatsTracker Viewer
 // ===============================
 
 // ---- URL helpers ----
 function getParam(name) {
-  const params = new URLSearchParams(window.location.search);
-  return params.get(name);
+  return new URLSearchParams(window.location.search).get(name);
 }
 
-// ---- UTF-8 safe Base64 (URL-safe) decoding ----
+// ---- UTF-8 safe Base64 URL decoding ----
 function decodeBase64UrlUnicode(str) {
-  // URL-safe → standard Base64
   str = str.replace(/-/g, "+").replace(/_/g, "/");
   while (str.length % 4) str += "=";
 
-  // UTF-8 safe decode
   return decodeURIComponent(
     Array.prototype.map.call(atob(str), c =>
       "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2)
@@ -22,35 +19,34 @@ function decodeBase64UrlUnicode(str) {
   );
 }
 
-// ---- Rendering helpers ----
+// ---- Utils ----
+function winrate(w, l) {
+  const t = w + l;
+  return t === 0 ? "0.0" : ((w / t) * 100).toFixed(1);
+}
+
 function renderBlock(id, title, html) {
   const el = document.getElementById(id);
   if (!el) return;
   el.innerHTML = `<h2>${title}</h2>${html}`;
 }
 
-function winrate(wins, losses) {
-  const total = wins + losses;
-  return total === 0 ? "0.0" : ((wins / total) * 100).toFixed(1);
-}
-
 // ===============================
-// Main
+// MAIN
 // ===============================
 const dataParam = getParam("data");
 
 if (!dataParam) {
-  document.getElementById("meta").innerHTML =
+  document.getElementById("meta").innerText =
     "No data provided. Paste a PvPStatsTracker export link.";
 } else {
   try {
     const json = JSON.parse(decodeBase64UrlUnicode(dataParam));
 
-    // ---- Meta / character info ----
-    const days =
-      json.resetDate
-        ? Math.floor((Date.now() / 1000 - json.resetDate) / 86400)
-        : 0;
+    // ---- Meta ----
+    const days = json.resetDate
+      ? Math.floor((Date.now() / 1000 - json.resetDate) / 86400)
+      : 0;
 
     document.getElementById("meta").innerHTML = `
       <b>Character:</b> ${json.character.name}<br>
@@ -59,17 +55,24 @@ if (!dataParam) {
       <b>Stats since:</b> ${days} day(s)
     `;
 
-    // ---- Global stats ----
-    renderBlock("global", "Global", `
-      <p><b>Wins:</b> ${json.global.wins} |
-         <b>Losses:</b> ${json.global.losses}</p>
-      <p><b>Winrate:</b> ${winrate(json.global.wins, json.global.losses)}%</p>
-      <p><b>Lifetime HKs:</b> ${json.global.honorableKills}</p>
-      <p><b>Current streak:</b> ${json.global.winStreak} |
-         <b>Best streak:</b> ${json.global.bestWinStreak}</p>
-    `);
+    // ---- Rendering ----
+    function render(mode) {
+      const g = json.global[mode];
+      const bgs = json.battlegrounds[mode];
 
-    // ---- Battleground rendering ----
+      renderBlock("global", "Global", `
+        <p><b>Wins:</b> ${g.wins} | <b>Losses:</b> ${g.losses}</p>
+        <p><b>Winrate:</b> ${winrate(g.wins, g.losses)}%</p>
+        <p><b>Lifetime HKs:</b> ${json.global.overall.honorableKills}</p>
+        <p><b>Current streak:</b> ${json.global.overall.winStreak} |
+           <b>Best streak:</b> ${json.global.overall.bestWinStreak}</p>
+      `);
+
+      renderBG("wsg", "Warsong Gulch", bgs.WSG, true);
+      renderBG("ab", "Arathi Basin", bgs.AB);
+      renderBG("av", "Alterac Valley", bgs.AV);
+    }
+
     function renderBG(id, title, bg, isWSG = false) {
       if (!bg) {
         renderBlock(id, title, "<p>No data.</p>");
@@ -78,12 +81,10 @@ if (!dataParam) {
 
       let html = `
         <p><b>Played:</b> ${bg.played}</p>
-        <p><b>Wins:</b> ${bg.wins} |
-           <b>Losses:</b> ${bg.losses}</p>
+        <p><b>Wins:</b> ${bg.wins} | <b>Losses:</b> ${bg.losses}</p>
         <p><b>Winrate:</b> ${winrate(bg.wins, bg.losses)}%</p>
       `;
 
-      // WSG-only: flags
       if (isWSG) {
         html += `
           <p><b>Flags captured:</b> ${bg.flagsCapturedEnemy || 0}</p>
@@ -96,18 +97,26 @@ if (!dataParam) {
       renderBlock(id, title, html);
     }
 
-    // ---- BGs ----
-    renderBG("wsg", "Warsong Gulch", json.battlegrounds.WSG, true);
-    renderBG("ab", "Arathi Basin", json.battlegrounds.AB, false);
-    renderBG("av", "Alterac Valley", json.battlegrounds.AV, false);
+    // ---- Tabs ----
+    document.querySelectorAll(".tab").forEach(btn => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".tab").forEach(b =>
+          b.classList.remove("active")
+        );
+        btn.classList.add("active");
+        render(btn.dataset.mode);
+      });
+    });
 
-    // ---- Footer ----
+    // Initial render
+    render("overall");
+
     document.getElementById("footer").innerText =
       "Generated via PvPStatsTracker";
 
   } catch (e) {
     console.error(e);
-    document.getElementById("meta").innerHTML =
+    document.getElementById("meta").innerText =
       "Invalid or corrupted data.";
   }
 }
