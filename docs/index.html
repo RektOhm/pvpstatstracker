@@ -9,15 +9,34 @@
 
 <div id="app">
   <h1>PvP Stats</h1>
+
+  <!-- Character / Meta -->
   <p id="meta"></p>
 
+  <!-- Global stats -->
   <div id="global" class="block"></div>
+
+  <!-- Battlegrounds -->
   <div id="wsg" class="block"></div>
   <div id="ab" class="block"></div>
   <div id="av" class="block"></div>
 
   <p class="footer" id="footer"></p>
 </div>
+
+<script>
+/*
+ UTF-8 safe Base64 decoding
+ Required for character names with accents (Å, é, ñ, ö…)
+*/
+function b64DecodeUnicode(str) {
+  return decodeURIComponent(
+    Array.prototype.map.call(atob(str), c =>
+      '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)
+    ).join('')
+  );
+}
+</script>
 
 <script src="viewer.js"></script>
 </body>
