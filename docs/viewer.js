@@ -25,9 +25,10 @@ function winrate(w, l) {
   return t === 0 ? "0.0" : ((w / t) * 100).toFixed(1);
 }
 
-function renderBlock(id, title, html) {
+function renderBlock(id, title, html, extraClass = "") {
   const el = document.getElementById(id);
   if (!el) return;
+  el.className = `block ${extraClass}`;
   el.innerHTML = `<h2>${title}</h2>${html}`;
 }
 
@@ -43,30 +44,61 @@ if (!dataParam) {
   try {
     const json = JSON.parse(decodeBase64UrlUnicode(dataParam));
 
-    // ---- Meta ----
+    // ---- META ----
     const days = json.resetDate
       ? Math.floor((Date.now() / 1000 - json.resetDate) / 86400)
       : 0;
 
+    const factionClass =
+      json.character.faction === "Alliance"
+        ? "faction-alliance"
+        : "faction-horde";
+
+    const factionIcon =
+      json.character.faction === "Alliance" ? "🦁" : "🪓";
+
+    document.querySelector("h1").innerHTML = `${factionIcon} PvP Stats`;
+
     document.getElementById("meta").innerHTML = `
-      <b>Character:</b> ${json.character.name}<br>
-      <b>Realm:</b> ${json.character.realm}<br>
-      <b>Faction:</b> ${json.character.faction}<br>
-      <b>Stats since:</b> ${days} day(s)
+      <b>Character:</b> <span class="stat">${json.character.name}</span><br>
+      <b>Realm:</b> <span class="stat">${json.character.realm}</span><br>
+      <b>Faction:</b>
+      <span class="${factionClass}">${json.character.faction}</span><br>
+      <b>Stats since:</b> <span class="stat">${days} day(s)</span>
     `;
 
-    // ---- Rendering ----
+    // ---- RENDERING ----
     function render(mode) {
       const g = json.global[mode];
       const bgs = json.battlegrounds[mode];
 
-      renderBlock("global", "Global", `
-        <p><b>Wins:</b> ${g.wins} | <b>Losses:</b> ${g.losses}</p>
-        <p><b>Winrate:</b> ${winrate(g.wins, g.losses)}%</p>
-        <p><b>Lifetime HKs:</b> ${json.global.overall.honorableKills}</p>
-        <p><b>Current streak:</b> ${json.global.overall.winStreak} |
-           <b>Best streak:</b> ${json.global.overall.bestWinStreak}</p>
-      `);
+      renderBlock(
+        "global",
+        "Global",
+        `
+        <p>
+          <span class="label">Wins:</span>
+          <span class="stat win">${g.wins}</span> |
+          <span class="label">Losses:</span>
+          <span class="stat loss">${g.losses}</span>
+        </p>
+        <p>
+          <span class="label">Winrate:</span>
+          <span class="stat">${winrate(g.wins, g.losses)}%</span>
+        </p>
+        <p>
+          <span class="label">Lifetime HKs:</span>
+          <span class="stat">${json.global.overall.honorableKills}</span>
+        </p>
+        <p>
+          <span class="label">Current streak:</span>
+          <span class="stat">${json.global.overall.winStreak}</span> |
+          <span class="label">Best streak:</span>
+          <span class="stat">${json.global.overall.bestWinStreak}</span>
+        </p>
+      `,
+        "global"
+      );
 
       renderBG("wsg", "Warsong Gulch", bgs.WSG, true);
       renderBG("ab", "Arathi Basin", bgs.AB);
@@ -75,29 +107,51 @@ if (!dataParam) {
 
     function renderBG(id, title, bg, isWSG = false) {
       if (!bg) {
-        renderBlock(id, title, "<p>No data.</p>");
+        renderBlock(id, title, "<p>No data.</p>", id);
         return;
       }
 
       let html = `
-        <p><b>Played:</b> ${bg.played}</p>
-        <p><b>Wins:</b> ${bg.wins} | <b>Losses:</b> ${bg.losses}</p>
-        <p><b>Winrate:</b> ${winrate(bg.wins, bg.losses)}%</p>
+        <p>
+          <span class="label">Played:</span>
+          <span class="stat">${bg.played}</span>
+        </p>
+        <p>
+          <span class="label">Wins:</span>
+          <span class="stat win">${bg.wins}</span> |
+          <span class="label">Losses:</span>
+          <span class="stat loss">${bg.losses}</span>
+        </p>
+        <p>
+          <span class="label">Winrate:</span>
+          <span class="stat">${winrate(bg.wins, bg.losses)}%</span>
+        </p>
       `;
 
       if (isWSG) {
         html += `
-          <p><b>Flags captured:</b> ${bg.flagsCapturedEnemy || 0}</p>
-          <p><b>Flags returned:</b> ${bg.flagsReturnedFriendly || 0}</p>
+          <p>
+            <span class="label">Flags captured:</span>
+            <span class="stat">${bg.flagsCapturedEnemy || 0}</span>
+          </p>
+          <p>
+            <span class="label">Flags returned:</span>
+            <span class="stat">${bg.flagsReturnedFriendly || 0}</span>
+          </p>
         `;
       }
 
-      html += `<p><b>Deserters:</b> ${bg.leavers || 0}</p>`;
+      html += `
+        <p>
+          <span class="label">Deserters:</span>
+          <span class="stat">${bg.leavers || 0}</span>
+        </p>
+      `;
 
-      renderBlock(id, title, html);
+      renderBlock(id, title, html, id);
     }
 
-    // ---- Tabs ----
+    // ---- TABS ----
     document.querySelectorAll(".tab").forEach(btn => {
       btn.addEventListener("click", () => {
         document.querySelectorAll(".tab").forEach(b =>
